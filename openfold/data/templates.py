@@ -17,6 +17,7 @@
 import dataclasses
 import datetime
 import glob
+import gzip
 import json
 import logging
 import os
@@ -832,8 +833,14 @@ def _process_single_hit(
         template_sequence,
     )
     # Fail if we can't find the mmCIF file.
-    with open(cif_path, "r") as cif_file:
-        cif_string = cif_file.read()
+    if os.path.isfile(cif_path):
+        with open(cif_path, "r") as cif_file:
+            cif_string = cif_file.read()
+    elif os.path.isfile(cif_path + '.gz'):
+        with gzip.open(cif_path + '.gz', 'rt') as cif_file:
+            cif_string = cif_file.read()
+    else:
+        return SingleHitResult(features=None, error=f"No .cif[.gz] file for {hit_pdb_code}", warning=None)
 
     parsing_result = mmcif_parsing.parse(
         file_id=hit_pdb_code, mmcif_string=cif_string
@@ -1008,7 +1015,8 @@ class TemplateHitFeaturizer:
                 * Any feature computation errors.
         """
         self._mmcif_dir = mmcif_dir
-        if not glob.glob(os.path.join(self._mmcif_dir, "*.cif")):
+        if not glob.glob(os.path.join(self._mmcif_dir, "*.cif")) and \
+                not glob.glob(os.path.join(self._mmcif_dir, "*.cif.gz")):
             logging.error("Could not find CIFs in %s", self._mmcif_dir)
             raise ValueError(f"Could not find CIFs in {self._mmcif_dir}")
 
