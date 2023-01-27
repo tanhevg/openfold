@@ -97,6 +97,7 @@ class MmcifObject:
     structure: PdbStructure
     chain_to_seqres: Mapping[ChainId, SeqRes]
     seqres_to_structure: Mapping[ChainId, Mapping[int, ResidueAtPosition]]
+    author_to_entity_id: Mapping[ChainId, ChainId]
     raw_string: Any
 
 
@@ -286,12 +287,20 @@ def parse(
             seq = "".join(seq)
             author_chain_to_sequence[author_chain] = seq
 
+        entity_to_mmcif_chains = _get_entity_to_mmcif_chains(parsed_info)
+        author_to_entity_id = {}
+        for e, cs in entity_to_mmcif_chains.items():
+            for c in cs:
+                if c in valid_chains:
+                    author_to_entity_id[mmcif_to_author_chain_id[c]] = e
+
         mmcif_object = MmcifObject(
             file_id=file_id,
             header=header,
             structure=first_model_structure,
             chain_to_seqres=author_chain_to_sequence,
             seqres_to_structure=seq_to_structure_mappings,
+            author_to_entity_id=author_to_entity_id,
             raw_string=parsed_info,
         )
 
@@ -397,15 +406,7 @@ def _get_protein_chains(
     # are proteins.
     chem_comps = mmcif_loop_to_dict("_chem_comp.", "_chem_comp.id", parsed_info)
 
-    # Get chains information for each entity. Necessary so that we can return a
-    # dict keyed on chain id rather than entity.
-    struct_asyms = mmcif_loop_to_list("_struct_asym.", parsed_info)
-
-    entity_to_mmcif_chains = collections.defaultdict(list)
-    for struct_asym in struct_asyms:
-        chain_id = struct_asym["_struct_asym.id"]
-        entity_id = struct_asym["_struct_asym.entity_id"]
-        entity_to_mmcif_chains[entity_id].append(chain_id)
+    entity_to_mmcif_chains = _get_entity_to_mmcif_chains(parsed_info)
 
     # Identify and return the valid protein chains.
     valid_chains = {}
@@ -422,6 +423,18 @@ def _get_protein_chains(
             for chain_id in chain_ids:
                 valid_chains[chain_id] = seq_info
     return valid_chains
+
+
+def _get_entity_to_mmcif_chains(parsed_info) -> Mapping[ChainId, Sequence[ChainId]]:
+    # Get chains information for each entity. Necessary so that we can return a
+    # dict keyed on chain id rather than entity.
+    struct_asyms = mmcif_loop_to_list("_struct_asym.", parsed_info)
+    entity_to_mmcif_chains = collections.defaultdict(list)
+    for struct_asym in struct_asyms:
+        chain_id = struct_asym["_struct_asym.id"]
+        entity_id = struct_asym["_struct_asym.entity_id"]
+        entity_to_mmcif_chains[entity_id].append(chain_id)
+    return entity_to_mmcif_chains
 
 
 def _is_set(data: str) -> bool:
