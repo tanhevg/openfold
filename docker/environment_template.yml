@@ -1,3 +1,4 @@
+# sed 's/<CUDA_VER>/11.6/' environment_template.yml 
 name: openfold_venv
 channels:
   - conda-forge
@@ -9,13 +10,12 @@ dependencies:
   - conda-forge::pip
   - conda-forge::openmm=7.5.1
   - conda-forge::pdbfixer
-  - conda-forge::cudatoolkit==11.3.*
+  - conda-forge::cudatoolkit=<CUDA_VER>
   - bioconda::hmmer==3.3.2
   - bioconda::hhsuite==3.3.0
   - bioconda::kalign2==2.04
   - pytorch::pytorch=1.12.*
   - pip:
-      - docker
       - biopython==1.79
       - deepspeed==0.5.10
       - dm-tree==0.1.6
