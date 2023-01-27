@@ -18,6 +18,7 @@ from openfold.data import (
     mmcif_parsing,
     templates,
 )
+# from openfold.utils.logger import setup_logging
 from openfold.utils.tensor_utils import tensor_tree_map, dict_multimap
 
 
@@ -426,6 +427,7 @@ class OpenFoldBatchCollator:
 class OpenFoldDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, config, stage="train", generator=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # setup_logging(save_path='/data/openfold/out/log', log_console=False)
         self.config = config
         self.stage = stage    
 
@@ -713,6 +715,7 @@ class OpenFoldDataModule(pl.LightningDataModule):
             batch_size=self.config.data_module.data_loaders.batch_size,
             num_workers=self.config.data_module.data_loaders.num_workers,
             collate_fn=batch_collator,
+            # worker_init_fn=lambda w: setup_logging(save_path='/data/openfold/out/log', log_console=False)
         )
 
         return dl

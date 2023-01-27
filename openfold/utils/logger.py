@@ -11,15 +11,63 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import os
 import operator
+import sys
 import time
+from pathlib import Path
 
 import dllogger as logger
+import typing
+
+import torch.utils.data
 from dllogger import JSONStreamBackend, StdOutBackend, Verbosity
 import numpy as np
 from pytorch_lightning import Callback
 import torch.cuda.profiler as profiler
+
+def setup_logging(save_path: typing.Optional[str] = None,
+                  log_level: typing.Union[str, int] = 'info',
+                  log_console: bool = True,
+                  formatter: typing.Optional[logging.Formatter] = None) -> None:
+    if isinstance(log_level, str):
+        level = getattr(logging, log_level.upper())
+    else:
+        level = log_level
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.handlers.clear()
+
+    if formatter is None:
+        formatter = logging.Formatter(
+            "%(levelname)s %(asctime)s.%(msecs)03d [%(process)d:%(threadName)s] <%(name)s> - %(message)s",
+            datefmt="%d/%b/%Y %H:%M:%S")
+
+    error_handler = logging.StreamHandler(sys.stderr)
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(formatter)
+    root_logger.addHandler(error_handler)
+
+    if log_console:
+        console_handler = logging.StreamHandler(sys.stdout)
+        # console_handler.setLevel(level)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
+
+    if save_path is not None:
+        out_path = Path(save_path)
+        worker_info = torch.utils.data.get_worker_info()
+        rank = os.getenv("LOCAL_RANK", "0")
+        if worker_info is None:
+            out_path = out_path / f'model_worker_{rank}.log'
+        else:
+            out_path = out_path / f'data_worker_{rank}_{worker_info.id}.log'
+        file_handler = logging.FileHandler(out_path)
+        # file_handler.setLevel(level)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
 
 
 def is_main_process():
