@@ -694,6 +694,7 @@ class DataPipeline:
             input_sequence,
             hits,
             self.template_featurizer,
+            query_pdb_code=mmcif.file_id,
             query_release_date=to_date(mmcif.header["release_date"])
         )
         
