@@ -123,7 +123,7 @@ class FeaturePipeline:
         self,
         raw_features: FeatureDict,
         mode: str = "train", 
-    ) -> FeatureDict:
+    ) -> TensorDict:
         return np_example_to_features(
             np_example=raw_features,
             config=self.config,
