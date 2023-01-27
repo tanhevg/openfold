@@ -16,7 +16,7 @@ from openfold.np import protein, residue_constants
 from utils import add_data_args
 
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.INFO)
 
 
 def run_seq_group_alignments(seq_groups, alignment_runner, args):
@@ -94,7 +94,8 @@ def parse_and_align(files, alignment_runner, args):
                 else:
                     logging.warning(msg)
             input_sequence = input_seqs[0]
-            seq_group_dict[input_sequence] = [file_id]
+            l = seq_group_dict.setdefault(input_sequence, [])
+            l.append(file_id)
         elif(f.endswith('.core')):
             with open(path, 'r') as fp:
                 core_str = fp.read()
@@ -104,11 +105,15 @@ def parse_and_align(files, alignment_runner, args):
                 residue_constants.restypes_with_x[aatype[i]] 
                 for i in range(len(aatype))
             ])
-            seq_group_dict[seq] = [file_id]
+            l = seq_group_dict.setdefault(seq, [])
+            l.append(file_id)
         else:
             continue
 
         seq_group_tuples = [(k,v) for k,v in seq_group_dict.items()]
+        if args.max_seq_len:
+            seq_group_tuples = [t for t in seq_group_tuples if len(t[0]) <= args.max_seq_len]
+
         run_seq_group_alignments(seq_group_tuples, alignment_runner, args)
 
 
@@ -173,17 +178,25 @@ def main(args):
     if(cache is not None and "seqs" in next(iter(cache.values()))):
         seq_group_dict = {}
         for f in files:
-            prot_id = os.path.splitext(f)[0]
+            fname, ext = os.path.splitext(f)
+            if ext == '.fasta':
+                prot_id = fname.split('_')[0]
+            else:
+                prot_id = fname
             if(prot_id in cache):
                 prot_cache = cache[prot_id]
                 chains_seqs = zip(
                     prot_cache["chain_ids"], prot_cache["seqs"]
                 )
                 for chain, seq in chains_seqs:
+                    if args.max_seq_len and len(seq) > args.max_seq_len:
+                        continue
                     chain_name = prot_id + "_" + chain
                     if(chain_name not in dirs):
                         l = seq_group_dict.setdefault(seq, [])
                         l.append(chain_name)
+            else:
+                logging.warning(f"{prot_id} not in cache")
        
         func = partial(run_seq_group_alignments, 
             alignment_runner=alignment_runner, 
@@ -244,6 +257,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--filter", type=bool, default=True,
     )
+    parser.add_argument("--max_seq_len", type=int)
 
     args = parser.parse_args()
 
