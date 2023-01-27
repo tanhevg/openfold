@@ -43,6 +43,11 @@ from scripts.zero_to_fp32 import (
 )
 
 from openfold.utils.logger import PerformanceLoggingCallback
+try:
+    import pydevd_pycharm # pip install pydevd-pycharm==221.5787.24 (your PyCharm version here)
+    PYCHARM_DEBUG=True
+except:
+    PYCHARM_DEBUG=False
 
 
 class OpenFoldWrapper(pl.LightningModule):
@@ -96,6 +101,7 @@ class OpenFoldWrapper(pl.LightningModule):
             self.ema.to(batch["aatype"].device)
 
         # Run the model
+        logging.info(f"Got batch {batch_idx}")
         outputs = self(batch)
 
         # Remove the recycling dimension
@@ -105,6 +111,7 @@ class OpenFoldWrapper(pl.LightningModule):
         loss, loss_breakdown = self.loss(
             outputs, batch, _return_breakdown=True
         )
+        logging.info(f"Loss={loss.item()}")
 
         # Log it
         self._log(loss_breakdown, batch, outputs)
@@ -243,6 +250,14 @@ class OpenFoldWrapper(pl.LightningModule):
 
 
 def main(args):
+    if args.debug:
+        if PYCHARM_DEBUG:
+            dbg_host = args.debug_host
+            dbg_port = args.debug_port
+            pydevd_pycharm.settrace(dbg_host, port=dbg_port, stdoutToServer=True, stderrToServer=True, suspend=False)
+        else:
+            logging.error("Pycharm debug is not available")
+
     if(args.seed is not None):
         seed_everything(args.seed) 
 
@@ -377,6 +392,9 @@ def bool_type(bool_str: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', action='store_true', default=False, help="Run with pycharm remote debug")
+    parser.add_argument('--debug_host', type=str, default=None, help="Debug host")
+    parser.add_argument('--debug_port', type=int, default=None, help="Debug port")
     parser.add_argument(
         "train_data_dir", type=str,
         help="Directory containing training mmCIF files"
